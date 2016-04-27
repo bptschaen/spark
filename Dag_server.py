@@ -5,13 +5,14 @@ import urllib
 import networkx as nx
 from networkx.readwrite import json_graph
 import json
+import MySQLdb
 
 app = Flask(__name__)
 
 
 """
 EXAMPLE CURL CALL:
-curl -i http://localhost:5000/newjob/0/%24sid%3D0%23id%3D1+name%3DMapPartitionsRDD+pid%3D0%2C%23%23%23id%3D0+name%3DParallelCollectionRDD+pid%3D
+curl -i http://localhost:5000/newjob/local-1461777587369/Spark+Pi/0/%24sid%3D0%23id%3D1+name%3DMapPartitionsRDD+pid%3D0%2C%23%23%23id%3D0+name%3DParallelCollectionRDD+pid%3D
 
 """
 
@@ -20,19 +21,29 @@ curl -i http://localhost:5000/newjob/0/%24sid%3D0%23id%3D1+name%3DMapPartitionsR
 def index():
     return "Still Running"
 
-@app.route( '/newjob/<int:jobid>/<string:dag>',  methods=['POST',  'GET'] )
-def newJob( jobid,  dag ):
+@app.route( '/newjob/<string:appid>/<string:appname>/<int:jobid>/<string:dag>',  methods=['POST',  'GET'] )
+def newJob( appid, appname, jobid, dag ):
     dag =  urllib.unquote(dag).decode('utf8')
     stages = dag.split("$")
     G = nx.DiGraph()
     for i in range(len(stages)):
         stageParse( stages[i],  G )
     printDags( G )
+    submitToWarehouse( appid,  appname,  jobid,  G )
     return "TODO: config suggestion for job " + str(jobid)
 
 def printDags( G ):
     print "JSON: ",  json.dumps( json_graph.node_link_data(G) )
     return
+
+def submitToWarehouse( appid,  appname,  jobid,  G ):
+    db = MySQLdb.connect(host="mother",    # your host, usually localhost
+                     user="",         # your username
+                     passwd="",  # your password
+                     db="warehouse")        # name of the data base
+    cur = db.cursor()
+    query = "INSERT INTO application (app_id, app_name, app_dag) VALUES ('" + appid + "','" + appname + "','" + json.dumps( json_graph.node_link_data(G) ) + "');"
+    cur.execute( query )
 
 def stageParse( stage,  G ):
     if not "sid=" in stage:
