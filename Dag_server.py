@@ -43,7 +43,7 @@ def stageParse( stage,  G ):
 
 def rddParse( rdds,  G ):
     rddFullList = []
-    
+
     #create nodes
     for rdd in rdds:
         rddDict = {}
@@ -58,7 +58,7 @@ def rddParse( rdds,  G ):
         rddDict['parentIds'] = parentIds
         #TODO: add more info about rdd here if necessary
         rddFullList.append( rddDict )
-        
+
     #connect nodes
     for rdd in rddFullList:
         id = rdd['id']
