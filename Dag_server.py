@@ -44,6 +44,8 @@ def submitToWarehouse( appid,  appname,  jobid,  G ):
     cur = db.cursor()
     query = "INSERT INTO application (app_id, app_name, app_dag) VALUES ('" + appid + "','" + appname + "','" + json.dumps( json_graph.node_link_data(G) ) + "');"
     cur.execute( query )
+    db.commit()
+    db.close()
 
 def stageParse( stage,  G ):
     if not "sid=" in stage:
