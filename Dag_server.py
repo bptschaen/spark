@@ -6,6 +6,7 @@ import networkx as nx
 from networkx.readwrite import json_graph
 import json
 import MySQLdb
+import graph_similarity
 
 app = Flask(__name__)
 
@@ -28,15 +29,41 @@ def newJob( appid, appname, jobid, dag ):
     G = nx.DiGraph()
     for i in range(len(stages)):
         stageParse( stages[i],  G )
-    printDags( G )
-    submitToWarehouse( appid,  appname,  jobid,  G )
+    getConfFromWarehouse( appid,  appname,  jobid,  G )
     return "TODO: config suggestion for job " + str(jobid)
 
 def printDags( G ):
     print "JSON: ",  json.dumps( json_graph.node_link_data(G) )
     return
 
-def submitToWarehouse( appid,  appname,  jobid,  G ):
+def getConfFromWarehouse( appid,  appname,  jobid,  G ):
+    db = MySQLdb.connect(host="mother",    # your host, usually localhost
+                     user="",         # your username
+                     passwd="",  # your password
+                     db="warehouse")        # name of the data base
+    cur = db.cursor()
+    query = "SELECT app_env, app_dag FROM application;"
+    cur.execute( query )
+    dbdata = cur.fetchall()
+    db.close()
+
+    #do dag comparisons
+    similarities = []
+    for prevData in dbdata:
+        try:
+            prevDag =  json_graph.node_link_graph( json.loads(prevData[1]) )
+            similarities.append( graph_similarity.dagSimilarity(G, prevDag ) )
+        except:
+            pass
+
+    closestApp = similarities.index( min(similarities) )
+    closestConf = dbdata[closestApp][0]
+    closestDag = dbdata[closestApp][1]
+    
+    print "Closest configuration ",  closestConf
+    print "Closest DAG was: ",  closestDag
+    
+    #add this dag to the warehouse
     db = MySQLdb.connect(host="mother",    # your host, usually localhost
                      user="",         # your username
                      passwd="",  # your password
@@ -80,12 +107,14 @@ def rddParse( rdds,  G ):
             G.add_edge( parentId, id )
     return  rddFullList
 
-@app.route( '/jobcompletion/<int:jobid>/<int:runtime>',  methods=['POST', 'GET'] )
-def updateWarehouse( jobid,  runtime ):
+@app.route( '/jobcompletion/<string:app_id>/<int:runtime>',  methods=['POST', 'GET'] )
+def updateWarehouse( app_id,  runtime ):
     print "updating warehouse with performance information"
-    print "job ", jobid, " took ", runtime/1e9, " seconds."
+    print "job ", app_id, " took ", runtime/1e9, " seconds."
     return "added to warehouse"
     #TODO: actually update warehouse
+
+    return "Updated."
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0',  debug=True)
